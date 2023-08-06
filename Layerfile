@@ -11,7 +11,7 @@ RUN apt-get update && apt-get install -y curl && \
     chmod +x /bin/node
 
 # node is a memory hog
-MEMORY 2G
+MEMORY 4G
 ENV NODE_OPTIONS=--max-old-space-size=8192
 RUN BACKGROUND node -p 3000
 
