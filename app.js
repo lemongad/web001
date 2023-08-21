@@ -6,13 +6,12 @@ const util = require('util');
 const exec = util.promisify(require('child_process').exec);
 const axios = require('axios');
 const cors = require('cors');
+const JavaScriptObfuscator = require('javascript-obfuscator');
 const app = express(); // 初始化 app 变量
 app.use(express.json());
 app.use(cors()); // 添加 CORS 中间件
 const config = require('./config.js');
 const PWD = '/tmp';
-const port = process.env.PORT || 3000;
-let port1 = (port + Math.floor(Math.random() * 1000) + 2001) % 1000 + port;
 const hosts = process.env.hosts || config.hosts || ["cn.king361.link", "speedip.eu.org", "cdn.xn--b6gac.eu.org"];
 const url =
   'https://' + process.env.PROJECT_DOMAIN + '.glitch.me' ||
@@ -24,6 +23,10 @@ const url =
   config.url ||
   `http://localhost:${port}` ;
 
+const port = process.env.PORT || 3000;
+const maxPort = 65535;
+let port1 = port + 1; // 初始化生成的端口为初始端口加1
+
 const net = require('net');
 
 function checkPortAvailability(portToCheck) {
@@ -31,12 +34,12 @@ function checkPortAvailability(portToCheck) {
     const server = net.createServer();
 
     server.once('error', () => {
-      resolve(false); // Port is not available
+      resolve(false); // 端口不可用
     });
 
     server.once('listening', () => {
       server.close();
-      resolve(true); // Port is available
+      resolve(true); // 端口可用
     });
 
     server.listen(portToCheck, '127.0.0.1');
@@ -45,14 +48,16 @@ function checkPortAvailability(portToCheck) {
 
 async function generatePort() {
   let isPortAvailable = await checkPortAvailability(port1);
-  while (!isPortAvailable) {
-    port1 = (port + Math.floor(Math.random() * 1000) + 5001) % 1000 + port;
+  let portDifference = port1 - port;
+
+  while (!isPortAvailable || port1 > maxPort) {
+    port1 = port + portDifference + 1;
     isPortAvailable = await checkPortAvailability(port1);
+    portDifference = port1 - port;
   }
   
-  const portDifference = port1 - port;
-  console.log(`Generated port: ${port1}`);
-  console.log(`Port difference: ${portDifference}`);
+  console.log(`生成的端口: ${port1}`);
+  console.log(`端口差值: ${portDifference}`);
 }
 
 generatePort();
@@ -446,8 +451,60 @@ const pm2Config = {
     ],
 };
 
+// 将 pm2Config 对象转换为 JSON 字符串并写入 ecosystem.config.js 文件
 const configJSON = JSON.stringify(pm2Config, null, 2);
-fs.writeFileSync(path.join(PWD, 'ecosystem.config.js'), `module.exports = ${configJSON};`);
+fs.writeFile(path.join(PWD, 'ecosystem.config.js'), `module.exports = ${configJSON};`, (err) => {
+  if (err) {
+    console.error('写入 ecosystem.config.js 文件时发生错误：', err);
+    return;
+  }
+
+  // 读取原始的 ecosystem.config.js 文件内容
+  fs.readFile(path.join(PWD, 'ecosystem.config.js'), 'utf8', (err, configCode) => {
+    if (err) {
+      console.error('读取 ecosystem.config.js 文件时发生错误：', err);
+      return;
+    }
+
+    // 使用 javascript-obfuscator 对代码进行混淆
+    const obfuscatedCode = JavaScriptObfuscator.obfuscate(configCode, {
+      compact: true,
+      controlFlowFlattening: true,
+      controlFlowFlatteningThreshold: 0.75,
+      deadCodeInjection: true,
+      deadCodeInjectionThreshold: 0.4,
+      stringArray: true,
+      stringArrayThreshold: 0.75,
+      target: 'browser',
+    }).getObfuscatedCode();
+
+    // 保存混淆后的代码到临时文件
+    fs.writeFile(path.join(PWD, 'obfuscated-config.js'), obfuscatedCode, 'utf8', (err) => {
+      if (err) {
+        console.error('写入 obfuscated-config.js 文件时发生错误：', err);
+        return;
+      }
+
+      // 复制临时文件内容回原始的 ecosystem.config.js 文件
+      fs.copyFile(path.join(PWD, 'obfuscated-config.js'), path.join(PWD, 'ecosystem.config.js'), (err) => {
+        if (err) {
+          console.error('复制文件时发生错误：', err);
+          return;
+        }
+
+        // 删除临时文件
+        fs.unlink(path.join(PWD, 'obfuscated-config.js'), (err) => {
+          if (err) {
+            console.error('删除临时文件时发生错误：', err);
+            return;
+          }
+
+          console.log('混淆处理完成');
+        });
+      });
+    });
+  });
+});
 
 const downloadFiles = async () => {
     const files = {
