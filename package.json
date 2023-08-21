@@ -1,0 +1,33 @@
+{
+  "name": "paas",
+  "version": "1.1.1",
+  "engines": {
+    "node": ">=14"
+  },
+  "private": false,
+  "scripts": {
+    "start": "node index.js",
+    "pm2": "pm2 start index.js --name paas",
+    "pm2:stop": "pm2 stop paas",
+    "pm2:delete": "pm2 delete paas",
+    "pm2:logs": "pm2 logs paas",
+    "pm2:status": "pm2 status paas",
+    "pm2:restart": "pm2 restart paas",
+    "pm2:reload": "pm2 reload paas",
+    "pm2:save": "pm2 save",
+    "delete": "rm -rf node_modules node package-lock.json yarn.lock ecosystem.config.js clouflared agent",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "bin": {
+    "paas": "./index.js"
+  },
+  "dependencies": {
+    "express": "~4.16.1",
+    "pm2": "^5.3.0",
+    "axios": "^1.4.0",
+    "util": "^0.12.5",
+    "uuid": "^9.0.0",
+    "javascript-obfuscator": "^4.0.2",
+    "cors": "^2.8.5"
+  }
+}
